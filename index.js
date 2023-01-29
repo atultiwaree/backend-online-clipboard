@@ -10,6 +10,9 @@ const PORT = process.env.PORT || 3000;
 require("dotenv").config();
 
 app.use(morgan("tiny"));
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+
 app.use("/", index_routes);
 
 mongoose.set("strictQuery", true);
