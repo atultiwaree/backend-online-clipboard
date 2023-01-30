@@ -1,63 +1,92 @@
 const mongoose = require("mongoose");
 
-const data_store_model_schema = mongoose.Schema(
-  {
-    deviceId: {
-      type: String,
-      require: true,
-    },
-    data: {
-      type: String,
-      default: null,
-    },
-    params: {
-      type: String,
-      default: null,
-      require: true,
-    },
+const data_store_model_schema = mongoose.Schema({
+  deviceId: {
+    type: String,
+    require: true,
   },
-  { timestamps: true }
-);
+  data: {
+    type: String,
+    default: null,
+  },
+  view: {
+    type: Number,
+    default: 0,
+  },
+  timeCreated: {
+    type: Date,
+    default: new Date(),
+  },
+  destroyIn: {
+    type: Date,
+    default: new Date(),
+  },
+  params: {
+    type: String,
+    default: null,
+    require: true,
+  },
+});
 
 module.exports.data_store_model = mongoose.model("Data", data_store_model_schema);
 
 module.exports.aggregate_data = (params_id) => {
   let aggreation_array = [
     {
-      $lookup: {
-        from: "datas",
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $eq: ["$params", params_id],
-              },
-            },
-          },
-          {
-            $project: {
-              _id: 0,
-              params: 1,
-              data: 1,
-              deviceId: 1,
-            },
-          },
-        ],
-        as: "data",
+      $addFields: {
+        nowTiming: new Date(),
       },
     },
     {
-      $unwind: {
-        path: "$data",
-        preserveNullAndEmptyArrays: false,
+      $match: {
+        $expr: {
+          $or: [
+            {
+              $and: [{ $eq: ["$timeCreated", "$destroyIn"] }, { $eq: ["$view", 0] }, { $eq: ["$params", params_id] }],
+            },
+            {
+              $and: [{ $lt: ["$nowTiming", "$destroyIn"] }, { $eq: ["$params", params_id] }],
+            },
+          ],
+        },
       },
     },
     {
       $project: {
-        data: 1,
-        _id: 0,
+        __v: 0,
       },
     },
+    // {
+    //   $lookup: {
+    //     from: "datas",
+    //     let: { paramas_match: params_id },
+    //     pipeline: [
+    //       {
+    //         $match: {
+    //           $expr: {
+    //             $eq: ["$params", "$$paramas_match"],
+    //           },
+    //         },
+    //       },
+    //     ],
+    //     as: "user_data",
+    //   },
+    // },
+    // {
+    //   $unwind: {
+    //     path: "$user_data",
+    //     preserveNullAndEmptyArrays: true,
+    //   },
+    // },
+    // { $limit: 1 },
+    // {
+    //   $project: {
+    //     _id: 0,
+    //     user_data: {},
+    //     limit: 1,
+    //   },
+    // },
   ];
+
   return this.data_store_model.aggregate(aggreation_array);
 };
