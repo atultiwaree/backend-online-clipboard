@@ -7,8 +7,12 @@ module.exports.serving_controller = (req, res) => {
 };
 
 module.exports.getter_controller = async (req, res) => {
-  let aggreated_result = await aggregate_data(req.params.params_id);
-  return res.status(200).json(utils.create_success_response(msgConstants.dataRetrived, aggreated_result[0].data));
+  let aggResult = await aggregate_data(req.params.params_id);
+
+  if (aggResult?.length > 0 && aggResult[0].timeCreated?.toString() === aggResult[0].destroyIn?.toString())
+    await data_store_model.updateOne({ _id: aggResult[0]._id }, { view: 1 });
+
+  return res.status(200).json(utils.create_success_response(msgConstants.dataRetrived, aggResult));
 };
 
 module.exports.setter_controller = async (req, res) => {
@@ -17,6 +21,8 @@ module.exports.setter_controller = async (req, res) => {
     if (!req.body[i]) return res.json(utils.create_failure_response(`${i} is required field.`));
     else obj[i] = req.body[i];
   }
+
+  if (req.body?.destroyIn) obj["destroyIn"] = utils.set_timer(req.body.destroyIn);
 
   const isAlreadyExists = await data_store_model.findOne({ params: req.body.params }).select({ __v: 0 });
   if (!isAlreadyExists) {
